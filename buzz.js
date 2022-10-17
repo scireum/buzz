@@ -67,7 +67,7 @@
      *
      * These IDs are mostly required in request/response scenarios.
      *
-     * @returns {string}
+     * @returns {string} a unique message ID
      */
     function generateId() {
         return ID_PREFIX + '-' + (idCounter++);
@@ -76,8 +76,8 @@
     /**
      * Determines if a given JSON object is a message which belongs to the given buzz link.
      *
-     * @param message the message to check
-     * @param link the link to check for
+     * @param {Object} message the message to check
+     * @param {string} link the link to check for
      * @returns {boolean} true if the message belongs to the link, false otherwise
      */
     function isBuzzMessage(message, link) {
@@ -87,8 +87,8 @@
     /**
      * Creates a new message for the given connector.
      *
-     * @param connector the connector which received the message
-     * @param message the message as JSON object
+     * @param {Connector} connector the connector which received the message
+     * @param {Object} message the message as JSON object
      * @constructor
      */
     buzz.Message = function (connector, message) {
@@ -99,7 +99,7 @@
     /**
      * Extracts the actual payload from the given message.
      *
-     * @returns {*} the payload as JSON object
+     * @returns {Object} the payload as JSON object
      */
     buzz.Message.prototype.payload = function () {
         return this.message.payload;
@@ -108,7 +108,7 @@
     /**
      * Returns the message envelope itself.
      *
-     * @returns {*} the message envelope
+     * @returns {Object} the message envelope
      */
     buzz.Message.prototype.envelope = function () {
         return this.message;
@@ -117,7 +117,7 @@
     /**
      * Sends a reply for this message.
      *
-     * @param payload the payload as JSON object
+     * @param {Object} payload the payload as JSON object
      */
     buzz.Message.prototype.reply = function (payload) {
         this.connector.sendMessage(MESSAGE_TYPE_RESPONSE, {
@@ -129,17 +129,16 @@
     /**
      * Creates a new buzz connector.
      *
-     * @param options provides options to properly configure the connector
-     * @param options.identifier the identifier of the software product, which is shown to the peer.
-     * @param options.name the name to be show to the peer. This could be the name of the system.
-     * @param options.link the name of the link to communicate on. This can be left empty, to use the default link
+     * @param {Object} options provides options to properly configure the connector
+     * @param {string} [options.name] the name to be show to the peer. This could be the name of the system. If omitted it will be filled by the generated ID.
+     * @param {string} [options.link] the name of the link to communicate on. This can be left empty, to use the default link
      * (to talk to outside callers via an uplink, or a dedicated name which is forwarded via a downlink).
      * @constructor
      */
     buzz.Connector = function (options) {
         this.uid = generateId();
-        this.name = options.name || this.uid;
         this.options = options;
+        this.name = options.name || this.uid;
         this.link = options.link || LINK_NAME_BUZZ_ROOT;
         this.capabilities = {};
         this.waitingCalls = {};
@@ -176,8 +175,8 @@
 
     /**
      * Registers a capability.
-     * @param capability the name of the capability
-     * @param callback the callback to invoke for incoming messages. This will receive a "Message" object.
+     * @param {string} capability the name of the capability
+     * @param {function} callback the callback to invoke for incoming messages. This will receive a "Message" object.
      */
     buzz.Connector.prototype.addCapability = function (capability, callback) {
         this.capabilities[capability] = callback;
@@ -187,9 +186,9 @@
      * Sends a message with the given payload.
      *
      * @param type the message type / capability to invoke
-     * @param envelope the envelope to use for the message. This will most probably be left empty, as to common fields
+     * @param {Object} [envelope={}] the envelope to use for the message. This will most probably be left empty, as to common fields
      * of the envelope are managed by the library itself.
-     * @param payload the payload to send
+     * @param {Object} payload the payload to send
      * @returns {string} the ID of the message sent
      */
     buzz.Connector.prototype.sendMessage = function (type, envelope, payload) {
@@ -210,21 +209,22 @@
      * Calls the given capability and handles the response in the given callback.
      *
      * @param type the message type / capability to invoke
-     * @param envelope the envelope to use for the message. This will most probably be left empty, as to common fields
+     * @param {Object} [envelope={}] the envelope to use for the message. This will most probably be left empty, as to common fields
      * of the envelope are managed by the library itself.
-     * @param payload the payload to send
-     * @param callback the callback to invoke once a response is received. This will receive a "Message" object.
+     * @param {Object} payload the payload to send
+     * @param {function} callback the callback to invoke once a response is received. This will receive a "Message" object.
      * @returns {string} the ID of the message sent
      */
     buzz.Connector.prototype.call = function (type, envelope, payload, callback) {
         const messageId = this.sendMessage(type, envelope, payload);
         this.waitingCalls[messageId] = callback;
+        return messageId;
     }
 
     /**
      * Determines if the peer supports a given capability.
-     * @param capability the name of the capability to check
-     * @param callback the callback which is invoked if the peer supports the requested capability
+     * @param {string} capability the name of the capability to check
+     * @param {function} callback the callback which is invoked if the peer supports the requested capability
      */
     buzz.Connector.prototype.queryCapability = function (capability, callback) {
         this.call(MESSAGE_TYPE_HAS_CAPABILITY, {}, {capability: capability}, callback);
@@ -257,11 +257,11 @@
     /**
      * Connects the given iFrame to a buzz link.
      *
-     * @param childFrame the iFrame to connect
-     * @param options the options to pass in
-     * @param options.link the link to connect to
-     * @param extensions a JSON object which will be appended to the payload of each message received from the
-     * childFrame
+     * @param {HTMLIFrameElement} childFrame the iFrame to connect
+     * @param {Object} options the options to pass in
+     * @param {string} [options.link] the link to connect to. This can be left empty, to use the default link.
+     * @param {Object} extensions a JSON object which will be appended to the payload of each message received from the
+     * childFrame.
      */
     buzz.installDownlink = function (childFrame, options, extensions) {
         const link = options.link || LINK_NAME_BUZZ_ROOT;
