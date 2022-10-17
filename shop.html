@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <script type="text/javascript" src="buzz.js"></script>
+    </head>
+    <body>
+        <script type="text/javascript">
+            buzz.enableDebugger();
+
+            const shop = new buzz.Connector({
+                name: 'shop'
+            });
+
+            shop.addCapability('item', function(message) {
+                message.reply({price:'1,99 EUR', availability: 'good'});
+            });
+            shop.addCapability('basket', function(message) {
+                alert('Added to basket: ' + message.payload().item);
+            });
+        </script>
+
+        <iframe id="catalogFrame" src="catalog.html" width="600" height="200"></iframe>
+        <script type="text/javascript">
+            new buzz.installDownlink(window.catalogFrame, {});
+        </script>
+    </body>
+</html>

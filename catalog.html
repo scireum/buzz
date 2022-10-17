@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <script type="text/javascript" src="buzz.js"></script>
+    </head>
+    <body>
+        <ul>
+            <li class="item" data-item="0815">
+                <div><b>ITEM: 0815</b></div>
+                <div class="price"></div>
+                <div class="availability"></div>
+                <div class="basket" >
+                    <a style="display:none" data-item="0815">Add to Basket</a>
+                </div>
+            </li>
+        </ul>
+        <script type="text/javascript">
+            const catalog = new buzz.Connector({
+                name: 'catalog'
+            });
+
+            catalog.queryCapability('item', function() {
+                document.querySelectorAll('.item').forEach(function(node) {
+                    catalog.call('item', {}, {item: node.dataset['item']}, function(response) {
+                        node.querySelector('.price').textContent = response.payload().price;
+                        node.querySelector('.availability').textContent = response.payload().availability;
+                    });
+                });
+            });
+
+            catalog.queryCapability('basket', function() {
+                document.querySelectorAll('.item .basket a').forEach(function(node) {
+                    node.style.display = 'inline';
+                    node.style.cursor = 'pointer';
+                    node.addEventListener('click', function() {
+                        catalog.sendMessage('basket', {}, {item: node.dataset['item']});
+                    });
+                });
+            });
+        </script>
+    </body>
+</html>
