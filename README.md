@@ -106,6 +106,7 @@ Um Artikel in den Warenkorb zu legen, werden unterschiedliche Capabilities / Nac
   * supplierName: Name des Herstellers / der Marke
   * previewImageUrl: Vorschaubild für den Artikel
 
+
 ## Lizenz
 ```
 MIT License
