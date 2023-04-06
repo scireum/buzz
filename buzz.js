@@ -285,7 +285,7 @@
                     if (isBuzzMessage(data, LINK_NAME_UPLINK)) {
                         data.buzzLink = link;
                         data.uplink = true;
-                        for (const key in extensions) {
+                        for (var key in extensions) {
                             data.payload[key] = extensions[key];
                         }
                         window.postMessage(JSON.stringify(data), '*');
