@@ -338,8 +338,13 @@
         buzz.ready = true;
 
         setTimeout(function () {
-            const event = new CustomEvent('buzz-ready', {});
-            document.dispatchEvent(event);
+            if (typeof (CustomEvent) === 'function') {
+                document.dispatchEvent(new CustomEvent('buzz-ready', {}));
+            } else {
+                const event = document.createEvent('Event');
+                event.initEvent('buzz-ready', true, true);
+                document.dispatchEvent(event);
+            }
         }, 0);
     }
 
