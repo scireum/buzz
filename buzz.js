@@ -285,6 +285,7 @@
                     if (isBuzzMessage(data, LINK_NAME_UPLINK)) {
                         data.buzzLink = link;
                         data.uplink = true;
+                        // Can't use let or const in for loops, as IE11 doesn't support it...
                         for (var key in extensions) {
                             data.payload[key] = extensions[key];
                         }
