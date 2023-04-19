@@ -106,6 +106,15 @@
     }
 
     /**
+     * Returns the actual message type.
+     *
+     * @returns {String} the message type
+     */
+    buzz.Message.prototype.messageType = function () {
+        return this.message.type;
+    }
+
+    /**
      * Returns the message envelope itself.
      *
      * @returns {Object} the message envelope
@@ -145,7 +154,14 @@
 
         const _me = this;
         this.addCapability(MESSAGE_TYPE_HAS_CAPABILITY, function (message) {
-            if (_me.capabilities.hasOwnProperty(message.payload().capability)) {
+            if (_me.options.hasOwnProperty('customHasCapabilityCallback')) {
+                if (_me.options.customHasCapabilityCallback(message.payload().capability)) {
+                    message.reply({
+                        uid: _me.uid,
+                        name: _me.name
+                    });
+                }
+            } else if (_me.capabilities.hasOwnProperty(message.payload().capability)) {
                 message.reply({
                     uid: _me.uid,
                     name: _me.name
@@ -163,9 +179,13 @@
             try {
                 const data = JSON.parse(event.data);
                 if (isBuzzMessage(data, _me.link) && data.sender !== _me.uid && (!data.receiver || data.receiver === _me.uid)) {
-                    const callback = _me.capabilities[data.type];
-                    if (callback != null) {
-                        callback(new buzz.Message(_me, data));
+                    if (_me.options.hasOwnProperty('customMessageCallback')) {
+                        _me.options.customMessageCallback(new buzz.Message(_me, data));
+                    } else {
+                        const callback = _me.capabilities[data.type];
+                        if (callback != null) {
+                            callback(new buzz.Message(_me, data));
+                        }
                     }
                 }
             } catch (ignored) {
@@ -306,27 +326,37 @@
         if (buzz.uplinkInstalled) {
             return;
         }
-
-        // If there is no parent window, we don't need an uplink...
-        if (window.top === window.self) {
-            return;
-        }
-
-        console.log('scireum BUZZ - Installing an uplink... ', window, window.parent);
         buzz.uplinkInstalled = true;
-        window.addEventListener('message', function (event) {
-            try {
-                const data = JSON.parse(event.data);
-                if (event.source !== window.parent) {
-                    if (isBuzzMessage(data, LINK_NAME_BUZZ_ROOT)) {
-                        data.buzzLink = LINK_NAME_UPLINK;
-                        window.parent.postMessage(JSON.stringify(data), "*");
+
+        // If there is a parent window, we need an uplink...
+        if (window.top !== window.self) {
+            console.log('scireum BUZZ - Installing an uplink to parent window... ', window, window.parent);
+            window.addEventListener('message', function (event) {
+                try {
+                    const data = JSON.parse(event.data);
+                    if (event.source !== window.parent) {
+                        if (isBuzzMessage(data, LINK_NAME_BUZZ_ROOT)) {
+                            data.buzzLink = LINK_NAME_UPLINK;
+                            window.parent.postMessage(JSON.stringify(data), "*");
+                        }
                     }
+                } catch (ignored) {
+                    console.log(ignored);
                 }
-            } catch (ignored) {
-                console.log(ignored);
-            }
-        });
+            });
+        } else if (window.hasOwnProperty('BuzzConnect')) {
+            // If a global "BuzzConnect" object is available, we can use it as an uplink...
+            console.log('scireum BUZZ - Installing an uplink to BuzzConnect... ', window, window.BuzzConnect);
+            new buzz.Connector({
+                name: BuzzConnect.hasOwnProperty('name') ? BuzzConnect.name() : 'BuzzConnect',
+                customHasCapabilityCallback: function (capability) {
+                    return window.BuzzConnect.hasOwnProperty(capability);
+                },
+                customMessageCallback: function (message) {
+                    message.reply(window.BuzzConnect[message.messageType()](message.payload()));
+                }
+            });
+        }
     }
 
     /**
