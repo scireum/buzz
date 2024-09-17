@@ -184,11 +184,18 @@
                     } else {
                         const callback = _me.capabilities[data.type];
                         if (callback != null) {
-                            callback(new buzz.Message(_me, data));
+                            try {
+                                callback(new buzz.Message(_me, data));
+                            } catch(error) {
+                                console.log("BUZZ handler failed to execute!", error);
+                            }
                         }
                     }
                 }
             } catch (ignored) {
+                // Only triggered, if an external message (which is either not a string or 
+                // isn't well-formed JSON) is received. In any case, we can discard this error
+                // as it wasn't a BUZZ message anyway and we'd only jam the browser console...
             }
         });
     }
@@ -296,9 +303,11 @@
                         childFrame.contentWindow.postMessage(JSON.stringify(data), '*');
                     }
                 } catch (ignored) {
-                    console.log(ignored);
+                    // Only triggered, if an external message (which is either not a string or 
+                    // isn't well-formed JSON) is received. In any case, we can discard this error
+                    // as it wasn't a BUZZ message anyway and we'd only jam the browser console...
                 }
-            } else if (event.source === childFrame.contentWindow) {
+            } else if (childFrame && childFrame.contentWindow && event.source === childFrame.contentWindow) {
                 // Receive messages from child window...
                 try {
                     const data = JSON.parse(event.data);
@@ -312,7 +321,9 @@
                         window.postMessage(JSON.stringify(data), '*');
                     }
                 } catch (ignored) {
-                    console.log(ignored);
+                    // Only triggered, if an external message (which is either not a string or 
+                    // isn't well-formed JSON) is received. In any case, we can discard this error
+                    // as it wasn't a BUZZ message anyway and we'd only jam the browser console...
                 }
             }
         });
