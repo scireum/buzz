@@ -63,6 +63,33 @@
     let idCounter = 0;
 
     /**
+     * Holds the optional, opt-in origin-hardening configuration.
+     *
+     * When left at its defaults, the library behaves exactly as before: messages from any origin are accepted, and
+     * cross-frame messages are posted with a '*' target origin. A hard global whitelist is intentionally NOT enforced
+     * by default because buzz is often embedded in arbitrary integrator domains - see buzz.configure().
+     *
+     * @type {{allowedOrigins: (string[]|null), targetOrigin: string}}
+     */
+    const securityConfig = {
+        allowedOrigins: null,
+        targetOrigin: '*'
+    };
+
+    /**
+     * Determines whether a cross-frame message from the given origin may be processed.
+     *
+     * Returns true unless an explicit allowlist has been configured via buzz.configure(). This keeps the default
+     * behavior unchanged so existing integrations on arbitrary integrator domains keep working.
+     *
+     * @param {string} origin the origin of the received message
+     * @returns {boolean} true if the origin is allowed, false otherwise
+     */
+    function isOriginAllowed(origin) {
+        return securityConfig.allowedOrigins === null || securityConfig.allowedOrigins.indexOf(origin) !== -1;
+    }
+
+    /**
      * Generates a unique message ID.
      *
      * These IDs are mostly required in request/response scenarios.
@@ -178,7 +205,10 @@
         window.addEventListener('message', function (event) {
             try {
                 const data = JSON.parse(event.data);
-                if (isBuzzMessage(data, _me.link) && data.sender !== _me.uid && (!data.receiver || data.receiver === _me.uid)) {
+                if (isBuzzMessage(data, _me.link)
+                    && data.sender !== _me.uid
+                    && (!data.receiver || data.receiver === _me.uid)
+                    && (event.source === window || isOriginAllowed(event.origin))) {
                     if (_me.options.hasOwnProperty('customMessageCallback')) {
                         _me.options.customMessageCallback(new buzz.Message(_me, data));
                     } else {
@@ -186,7 +216,7 @@
                         if (callback != null) {
                             try {
                                 callback(new buzz.Message(_me, data));
-                            } catch(error) {
+                            } catch (error) {
                                 console.log("BUZZ handler failed to execute!", error);
                             }
                         }
@@ -259,6 +289,33 @@
 
 
     /**
+     * Optionally hardens the cross-frame communication against foreign frames.
+     *
+     * This is fully opt-in and backwards compatible: without calling this (or with empty options), buzz keeps its
+     * previous behavior of accepting messages from any origin and posting cross-frame messages with a '*' target origin.
+     * A hard global whitelist is intentionally NOT enforced, because buzz/oxomi.js run on arbitrary integrator domains
+     * and a static whitelist would break legitimate integrations.
+     *
+     * Same-window bus messages (event.source === window) are always accepted regardless of the allowlist, as they never
+     * cross an origin boundary; only genuine cross-frame messages are filtered.
+     *
+     * @param {Object} [options] the hardening options
+     * @param {string[]} [options.allowedOrigins] origins from which cross-frame messages are accepted (uplink
+     * forwarding and direct cross-frame posts). When omitted, messages from any origin are accepted (default).
+     * @param {string} [options.targetOrigin] the target origin used when forwarding messages to the parent
+     * window via the uplink. Defaults to '*'.
+     */
+    buzz.configure = function (options) {
+        options = options || {};
+        if (Array.isArray(options.allowedOrigins)) {
+            securityConfig.allowedOrigins = options.allowedOrigins;
+        }
+        if (typeof options.targetOrigin === 'string') {
+            securityConfig.targetOrigin = options.targetOrigin;
+        }
+    }
+
+    /**
      * Enables the built-in debugger, which logs all messages to the console.
      */
     buzz.enableDebugger = function () {
@@ -287,11 +344,21 @@
      * @param {HTMLIFrameElement} childFrame the iFrame to connect
      * @param {Object} options the options to pass in
      * @param {string} [options.link] the link to connect to. This can be left empty, to use the default link.
+     * @param {string} [options.targetOrigin] the target origin used when posting messages to the child frame.
+     * Defaults to '*' (unchanged behavior) when omitted.
+     * @param {string[]} [options.allowedOrigins] origins from which messages sent by the child frame are accepted.
+     * When omitted, messages from the child window are accepted regardless of origin (unchanged behavior). The
+     * child window identity (event.source) is always verified independently of this option.
      * @param {Object} extensions a JSON object which will be appended to the payload of each message received from the
      * childFrame.
      */
     buzz.installDownlink = function (childFrame, options, extensions) {
         const link = options.link || LINK_NAME_BUZZ_ROOT;
+        const childTargetOrigin = options.targetOrigin || '*';
+        const childAllowedOrigins = Array.isArray(options.allowedOrigins) ? options.allowedOrigins : null;
+        const isChildOriginAllowed = function (origin) {
+            return childAllowedOrigins === null || childAllowedOrigins.indexOf(origin) !== -1;
+        };
         console.log('scireum BUZZ - Installing a downlink for bus ' + link + '... ', window, childFrame.contentWindow);
         window.addEventListener('message', function (event) {
             if (event.source === window) {
@@ -300,14 +367,14 @@
                     const data = JSON.parse(event.data);
                     if (isBuzzMessage(data, link) && !data.uplink) {
                         data.buzzLink = LINK_NAME_BUZZ_ROOT;
-                        childFrame.contentWindow.postMessage(JSON.stringify(data), '*');
+                        childFrame.contentWindow.postMessage(JSON.stringify(data), childTargetOrigin);
                     }
                 } catch (ignored) {
                     // Only triggered, if an external message (which is either not a string or 
                     // isn't well-formed JSON) is received. In any case, we can discard this error
                     // as it wasn't a BUZZ message anyway and we'd only jam the browser console...
                 }
-            } else if (childFrame && childFrame.contentWindow && event.source === childFrame.contentWindow) {
+            } else if (childFrame && childFrame.contentWindow && event.source === childFrame.contentWindow && isChildOriginAllowed(event.origin)) {
                 // Receive messages from child window...
                 try {
                     const data = JSON.parse(event.data);
@@ -345,10 +412,10 @@
             window.addEventListener('message', function (event) {
                 try {
                     const data = JSON.parse(event.data);
-                    if (event.source !== window.parent) {
+                    if (event.source !== window.parent && (event.source === window || isOriginAllowed(event.origin))) {
                         if (isBuzzMessage(data, LINK_NAME_BUZZ_ROOT)) {
                             data.buzzLink = LINK_NAME_UPLINK;
-                            window.parent.postMessage(JSON.stringify(data), "*");
+                            window.parent.postMessage(JSON.stringify(data), securityConfig.targetOrigin);
                         }
                     }
                 } catch (ignored) {
