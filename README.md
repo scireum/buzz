@@ -1,7 +1,7 @@
 # scireum BUZZ
 
 Die BUZZ Schnittstelle ist eine Nachrichten-orientierte API zum Verbinden von unterschiedlichen Webseiten sowie nativen
-Anwendungen wie beispielsweise Apps in Electron, Android oder iOS. Über die Schnittstelle können beispielsweise
+Anwendungen wie beispielsweise Apps in Electron, Android oder iOS. Über die Schnittstelle können beispielsweise 
 Konfiguratoren oder Produkt-Auswahlhilfen (z.B. OXOMI) in Webshops integriert werden. Weiterhin kann ein Shop direkt
 mit einem Handwerker-ERP Daten austauschen.
 
@@ -24,10 +24,10 @@ const catalog = new buzz.Connector({
 Anschließend kann geprüft werden, ob die Gegenstelle vorhanden ist und bestimmte Funktionen unterstützt:
 
 ```javascript
-catalog.queryCapability('item', function () {
+catalog.queryCapability('item', function() {
     // Die Gegenstelle kann Informationen zur Artikeln bieten -> anfragen und anzeigen...
-    document.querySelectorAll('.item').forEach(function (node) {
-        catalog.call('item', {}, {item: node.dataset['item']}, function (response) {
+    document.querySelectorAll('.item').forEach(function(node) {
+        catalog.call('item', {}, {item: node.dataset['item']}, function(response) {
             node.querySelector('.price').textContent = response.payload().price;
             node.querySelector('.availability').textContent = response.payload().availability;
         });
@@ -36,7 +36,6 @@ catalog.queryCapability('item', function () {
 ```
 
 Wird aktiv selbst eine fremde Komponente eingebunden, so kann ein eigener Link eingerichtet werden:
-
 ```javascript
 const client = new buzz.Connector({
     name: 'shop',
@@ -45,51 +44,17 @@ const client = new buzz.Connector({
 ```
 
 Dieser kann dann der Komponente mitgeteilt werden, oder an einen iFrame angedockt werden:
-
 ```javascript
  new buzz.installDownlink(window.catalogFrame, {link: 'inner'});
 ```
 
 Alternativ kann ein iFrame auch direkt an den "Haupt-link" konfiguriert werden, wenn keine Schnittstelle "nach außen"
 benötigt wird:
-
 ```javascript
  new buzz.installDownlink(window.catalogFrame, {});
 ```
 
 Beispiele finden sich in [shop.html](shop.html) sowie [catalog.html](catalog.html).
-
-## Härtung der Origin-Kommunikation (optional)
-
-BUZZ wird bewusst auf beliebigen Integrator-Domains eingebunden. Eine statische, global erzwungene Origin-Whitelist
-würde deshalb potenziell Integrationen brechen. Standardmäßig akzeptiert BUZZ daher Nachrichten von beliebigen Origins
-und sendet Cross-Frame-Nachrichten mit `targetOrigin = '*'` (unverändertes Verhalten).
-
-Integrationen, die ihre Origins kennen, können die Kommunikation **optional** härten. Same-Window-Bus-Nachrichten
-(`event.source === window`) werden dabei immer akzeptiert, da sie keine Origin-Grenze überschreiten; gefiltert
-werden ausschließlich echte Cross-Frame-Nachrichten.
-
-Global (betrifft Connector-Listener und den Uplink zum Parent-Fenster):
-
-```javascript
-buzz.configure({
-    allowedOrigins: ['https://shop.example.com'], // nur diese Origins dürfen Cross-Frame-Nachrichten senden
-    targetOrigin: 'https://shop.example.com'       // Ziel-Origin beim Weiterleiten an das Parent-Fenster
-});
-```
-
-Pro Downlink (betrifft die Kommunikation mit einem konkreten Child-iFrame):
-
-```javascript
-buzz.installDownlink(window.catalogFrame, {
-    link: 'inner',
-    targetOrigin: 'https://configurator.example.com',    // Ziel-Origin beim Posten an das Child-Frame
-    allowedOrigins: ['https://configurator.example.com'] // akzeptierte Origins für Nachrichten aus dem Child-Frame
-});
-```
-
-Werden die Optionen weggelassen, bleibt das bisherige Verhalten vollständig erhalten (kein Breaking Change).
-Die Fenster-Identität (`event.source`) wird bei Downlinks unabhängig von `allowedOrigins` weiterhin geprüft.
 
 ## Standard-Nachrichten
 
@@ -101,19 +66,15 @@ nach Bedarf mi-übermittelt werden.
 
 Elemente wie Konfiguratoren oder erweiterte Artikeldatenbanken benötigen Informationen bezüglich Preis und Verfügbarkeit
 eines Artikels. Hierfür wird die "capability" bzw. der Nachrichten-Type **priceAvailability** verwendet. Um die
-Anzeige weiter anzupassen, können Artikelnummer, Type und Kurztext überschrieben werden (um so z.B. eine
-Herstellernummer
+Anzeige weiter anzupassen, können Artikelnummer, Type und Kurztext überschrieben werden (um so z.B. eine Herstellernummer
 durch eine eigene Artikelnummer zu ersetzen).
 
 **Request**
-
 * version: Versionsnummer der Nachricht. Derzeit immer "1".
-* supplierNumber: Gibt die Herstellernummer/Lieferantennummer an, falls bekannt. Falls ein eigener Artikel angefragt
-  wird, kann hier "-" verwendet werden. Falls die Herstellernummer unbekannt ist, kann der Parameter weggelassen werden.
+* supplierNumber: Gibt die Herstellernummer/Lieferantennummer an, falls bekannt. Falls ein eigener Artikel angefragt wird, kann hier "-" verwendet werden. Falls die Herstellernummer unbekannt ist, kann der Parameter weggelassen werden.
 * itemNumber: Gibt die Artikelnummer an, für die Informationen geliefert werden.
 
 **Response**
-
 * itemNumber: Die effektive Artikelnummer die angezeigt werden soll (optional)
 * model: Die effektive Type die angezeigt werden soll (optional)
 * shortText: Der effektive Kurztext der angezeigt werden soll (optional)
@@ -128,7 +89,6 @@ Neben der reinen Anzeige von Preis- und Verfügbarkeit, können mit **itemData**
 werden. Die Anfrage ist hierbei gleich wie bei **priceAvailability**.
 
 **Response**
-
 * *Felder aus **priceAvailability** Antwort*
 * previewImageUrl: Url zu einem Vorschaubild (optional)
 * datasheetUrl: Url zu einem Datenblatt / Produkt-Detailseite (optional)
@@ -138,16 +98,16 @@ werden. Die Anfrage ist hierbei gleich wie bei **priceAvailability**.
 Um Artikel in den Warenkorb zu legen, werden unterschiedliche Capabilities / Nachrichten verwendet:
 
 * **addItemToBasket**
-    * supplierNumber: Lieferantennummer
-    * itemNumber: Artikelnummer
-    * quantity: Menge
-    * unit: Mengeneinheit (optional)
-    * shortText: Kurzbeschreibung der Position
-    * supplierName: Name des Herstellers / der Marke
-    * previewImageUrl: Vorschaubild für den Artikel
+  * supplierNumber: Lieferantennummer
+  * itemNumber: Artikelnummer
+  * quantity: Menge
+  * unit: Mengeneinheit (optional)
+  * shortText: Kurzbeschreibung der Position
+  * supplierName: Name des Herstellers / der Marke
+  * previewImageUrl: Vorschaubild für den Artikel
+
 
 ## Lizenz
-
 ```
 MIT License
 
